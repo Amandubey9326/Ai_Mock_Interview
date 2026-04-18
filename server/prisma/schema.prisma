@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  Frontend
+  Backend
+  DSA
+  HR
+  DevOps
+  SystemDesign
+  DataScience
+  QAManual
+  QAAutomation
+}
+
+enum Difficulty {
+  Easy
+  Medium
+  Hard
+}
+
+model User {
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  email            String      @unique
+  password         String
+  plan             String      @default("free")
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime    @default(now())
+  interviews       Interview[]
+}
+
+model Interview {
+  id         String              @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String              @db.ObjectId
+  role       Role
+  difficulty Difficulty
+  createdAt  DateTime            @default(now())
+  user       User                @relation(fields: [userId], references: [id])
+  questions  InterviewQuestion[]
+
+  @@index([userId])
+}
+
+model InterviewQuestion {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  interviewId String    @db.ObjectId
+  question    String
+  userAnswer  String?
+  aiFeedback  Json?
+  score       Int?
+  interview   Interview @relation(fields: [interviewId], references: [id])
+
+  @@index([interviewId])
+}
