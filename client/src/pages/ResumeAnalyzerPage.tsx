@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
-import LoadingSpinner from '../components/LoadingSpinner';
 import FeedbackCard from '../components/FeedbackCard';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToast } from '../components/Toast';

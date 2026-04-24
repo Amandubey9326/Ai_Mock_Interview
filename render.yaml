@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: hiremind-ai-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm install && npx prisma generate
+    startCommand: node --import tsx src/server.ts
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PORT
+        value: 5001
+      - key: CORS_ORIGIN
+        sync: false

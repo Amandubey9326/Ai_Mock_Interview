@@ -60,7 +60,6 @@ function saveTemplates(templates: InterviewTemplate[]) {
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
 }
 
-const roleLabels: Record<string, string> = Object.fromEntries(roles.map((r) => [r.value, r.label]));
 const roleIcons: Record<string, string> = Object.fromEntries(roles.map((r) => [r.value, r.icon]));
 
 export default function StartInterviewPage() {
