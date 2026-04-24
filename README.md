@@ -47,49 +47,40 @@ AI-powered mock interview platform. Practice interviews with AI-generated questi
 
 ## Quick Start
 
-### 1. Clone and install
+### Prerequisites
+- Node.js 20+
+- MongoDB 6+ with replica set
+
+### 2 Commands to Run
 
 ```bash
-# Backend
-cd server
 npm install
-
-# Frontend
-cd ../client
-npm install
+npm run dev
 ```
 
-### 2. Configure environment
+That's it. The setup script automatically:
+- Installs server + client dependencies
+- Creates `.env` files from examples
+- Starts MongoDB (if installed via Homebrew)
+- Generates Prisma client & pushes schema
+- Starts both server (port 5001) and client (port 3000)
 
-Edit `server/.env` with your Gemini API key:
+Open http://localhost:3000 in your browser.
+
+### Optional: Add API Keys
+
+For AI features, get a free Gemini key at https://aistudio.google.com/apikey and add to `server/.env`:
 ```env
-DATABASE_URL=mongodb://localhost:27017/hiremind_ai?replicaSet=rs0
-JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=7d
-GEMINI_API_KEY=your-gemini-api-key
-PORT=5001
+GEMINI_API_KEY=your-key-here
 ```
 
-### 3. Setup MongoDB replica set (required for Prisma)
+### MongoDB Setup (one-time)
 
 ```bash
 brew install mongodb-community
 brew services start mongodb-community
 mongosh --eval "rs.initiate()"
 ```
-
-### 4. Run (one command)
-
-```bash
-npm run dev
-```
-
-This single command will:
-- Install dependencies (if missing)
-- Create `.env` files from examples (if missing)
-- Start MongoDB (if not running)
-- Generate Prisma client & push schema
-- Start both server (port 5001) and client (port 3000)
 
 - Frontend: http://localhost:3000
 - Backend: http://localhost:5001

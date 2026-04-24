@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "cd server && npm install && cd ../client && npm install",
     "dev": "bash setup.sh",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "install:all": "cd server && npm install && cd ../client && npm install",
     "setup": "bash setup.sh"
   }
 }
