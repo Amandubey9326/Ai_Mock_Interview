@@ -19,6 +19,7 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import BookmarksPage from './pages/BookmarksPage';
 import AdminPage from './pages/AdminPage';
 import SchedulePage from './pages/SchedulePage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AboutPage from './pages/AboutPage';
 import AIChatbot from './components/AIChatbot';
@@ -57,6 +58,7 @@ function App() {
               <Route path="/bookmarks" element={<ProtectedRoute><BookmarksPage /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
               <Route path="/schedule" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
+              <Route path="/verify-email" element={<ProtectedRoute><VerifyEmailPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
             <AuthenticatedChatbot />

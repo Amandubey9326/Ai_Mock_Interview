@@ -44,7 +44,7 @@ export default function SignupPage() {
       if (!localStorage.getItem('onboarded')) {
         setShowWelcome(true);
       } else {
-        navigate('/dashboard');
+        navigate('/verify-email');
       }
     } catch (err: unknown) {
       const message =
@@ -60,7 +60,7 @@ export default function SignupPage() {
   const dismissWelcome = () => {
     localStorage.setItem('onboarded', 'true');
     setShowWelcome(false);
-    navigate('/dashboard');
+    navigate('/verify-email');
   };
 
   return (

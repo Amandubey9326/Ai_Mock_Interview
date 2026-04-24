@@ -9,6 +9,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  resendApiKey: process.env.RESEND_API_KEY || '',
   port: parseInt(process.env.PORT || '5001', 10),
 };
 

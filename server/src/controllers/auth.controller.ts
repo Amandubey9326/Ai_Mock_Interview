@@ -137,3 +137,28 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
     next(err);
   }
 }
+
+
+export async function verifyEmail(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { code } = req.body;
+    if (!code || typeof code !== 'string') {
+      res.status(400).json({ status: 400, message: 'Verification code is required' });
+      return;
+    }
+
+    await authService.verifyEmail(req.user!.id, code.trim());
+    res.status(200).json({ message: 'Email verified successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resendVerification(req: Request, res: Response, next: NextFunction) {
+  try {
+    await authService.resendVerification(req.user!.id);
+    res.status(200).json({ message: 'Verification code sent' });
+  } catch (err) {
+    next(err);
+  }
+}
