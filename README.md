@@ -61,12 +61,7 @@ npm install
 
 ### 2. Configure environment
 
-```bash
-cp server/.env.example server/.env
-cp client/.env.example client/.env
-```
-
-Edit `server/.env`:
+Edit `server/.env` with your Gemini API key:
 ```env
 DATABASE_URL=mongodb://localhost:27017/hiremind_ai?replicaSet=rs0
 JWT_SECRET=your-secret-key
@@ -78,28 +73,23 @@ PORT=5001
 ### 3. Setup MongoDB replica set (required for Prisma)
 
 ```bash
+brew install mongodb-community
 brew services start mongodb-community
 mongosh --eval "rs.initiate()"
 ```
 
-### 4. Push database schema
+### 4. Run (one command)
 
 ```bash
-cd server
-npx prisma db push
-```
-
-### 5. Run
-
-```bash
-# Terminal 1 — Backend
-cd server
-npm run dev
-
-# Terminal 2 — Frontend
-cd client
 npm run dev
 ```
+
+This single command will:
+- Install dependencies (if missing)
+- Create `.env` files from examples (if missing)
+- Start MongoDB (if not running)
+- Generate Prisma client & push schema
+- Start both server (port 5001) and client (port 3000)
 
 - Frontend: http://localhost:3000
 - Backend: http://localhost:5001

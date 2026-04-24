@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useToast } from '../components/Toast';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { getLeaderboard, type LeaderboardEntry } from '../api/leaderboard';
 
 export default function LeaderboardPage() {
+  usePageTitle('Leaderboard');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();

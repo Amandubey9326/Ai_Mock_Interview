@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import Navbar from '../components/Navbar';
@@ -7,10 +7,15 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ScoreIndicator from '../components/ScoreIndicator';
 import FeedbackCard from '../components/FeedbackCard';
 import { useToast } from '../components/Toast';
+import VoiceInput from '../components/VoiceInput';
+import ShareButtons from '../components/ShareButtons';
 import { generateQuestion, submitAnswer, getInterviewDetail } from '../api/interviews';
+import { saveBookmark, isBookmarked } from '../pages/BookmarksPage';
 import type { QuestionResponse, EvaluationResponse, Difficulty } from '../types';
 
 const TIMER_SECONDS = 5 * 60;
+const FULL_MOCK_TIMER = 30 * 60; // 30 minutes
+const FULL_MOCK_QUESTIONS = 10;
 
 interface AnsweredQuestion {
   question: string;
@@ -161,6 +166,9 @@ function SessionSummary({ answered, onBack }: { answered: AnsweredQuestion[]; on
         <SummaryCard label="Worst Score" value={String(worstScore)} />
         <SummaryCard label="Time Spent" value={`${mins}m ${secs}s`} />
       </div>
+      <div className="flex items-center justify-center mb-4">
+        <ShareButtons score={avgScore} role="Interview" difficulty="" questionsCount={answered.length} />
+      </div>
       <button
         onClick={onBack}
         className="w-full bg-indigo-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
@@ -183,7 +191,11 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 export default function InterviewSessionPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
+
+  const isFullMock = searchParams.get('mode') === 'full';
+  const targetCompany = searchParams.get('company') || '';
 
   const [question, setQuestion] = useState<QuestionResponse | null>(null);
   const [answer, setAnswer] = useState('');
@@ -196,6 +208,8 @@ export default function InterviewSessionPage() {
   const [questionNumber, setQuestionNumber] = useState(1);
   const [interviewDifficulty, setInterviewDifficulty] = useState<Difficulty | null>(null);
   const questionStartTime = useRef(Date.now());
+  const [sessionTimeLeft, setSessionTimeLeft] = useState(FULL_MOCK_TIMER);
+  const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isMCQ = question?.type === 'mcq' && question.options && question.options.length > 0;
 
@@ -212,6 +226,17 @@ export default function InterviewSessionPage() {
   evaluationRef.current = evaluation;
   submittingRef.current = submitting;
 
+  // Warn before leaving mid-interview
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!showSummary && answeredQuestions.length > 0) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [showSummary, answeredQuestions.length]);
+
   // Fetch interview details to get difficulty
   useEffect(() => {
     if (!id) return;
@@ -223,6 +248,24 @@ export default function InterviewSessionPage() {
         // Non-critical — difficulty accent just won't show
       });
   }, [id]);
+
+  // Full mock session timer
+  useEffect(() => {
+    if (!isFullMock) return;
+    sessionTimerRef.current = setInterval(() => {
+      setSessionTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+          setShowSummary(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+    };
+  }, [isFullMock]);
 
   const handleTimerExpire = useCallback(() => {
     if (evaluationRef.current || submittingRef.current || !questionRef.current || !id) return;
@@ -284,7 +327,7 @@ export default function InterviewSessionPage() {
     resetTimer();
     questionStartTime.current = Date.now();
     try {
-      const q = await generateQuestion(id);
+      const q = await generateQuestion(id, targetCompany || undefined);
       setQuestion(q);
       setQuestionNumber((prev) => (prev === 1 && answeredQuestions.length === 0 ? 1 : prev + 1));
     } catch {
@@ -354,11 +397,20 @@ export default function InterviewSessionPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Interview Session</h1>
           <div className="flex items-center gap-3">
+            {isFullMock && (
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-mono font-bold ${
+                sessionTimeLeft <= 300 ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 animate-pulse' :
+                sessionTimeLeft <= 600 ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+              }`}>
+                🎯 {Math.floor(sessionTimeLeft / 60)}:{String(sessionTimeLeft % 60).padStart(2, '0')}
+              </div>
+            )}
             {!loadingQuestion && question && !evaluation && (
               <TimerDisplay remaining={remaining} />
             )}
             <button
-              onClick={() => { stopTimer(); setShowSummary(true); }}
+              onClick={() => { stopTimer(); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); setShowSummary(true); }}
               className="bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-4 rounded-lg font-medium transition-colors"
             >
               End Interview
@@ -434,15 +486,20 @@ export default function InterviewSessionPage() {
                     })}
                   </div>
                 ) : (
-                  <textarea
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                    onKeyDown={handleTextareaKeyDown}
-                    placeholder="Type your answer here..."
-                    rows={6}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-xl p-4 text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y placeholder-gray-400 dark:placeholder-gray-500"
-                    disabled={submitting}
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      onKeyDown={handleTextareaKeyDown}
+                      placeholder="Type your answer or use the mic..."
+                      rows={6}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl p-4 pr-14 text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y placeholder-gray-400 dark:placeholder-gray-500"
+                      disabled={submitting}
+                    />
+                    <div className="absolute top-3 right-3">
+                      <VoiceInput onTranscript={(text) => setAnswer(text)} disabled={submitting} />
+                    </div>
+                  </div>
                 )}
                 <div>
                   <motion.button
@@ -472,6 +529,33 @@ export default function InterviewSessionPage() {
                   <AnimatePresence>
                     <ScoreReaction score={evaluation.score} />
                   </AnimatePresence>
+                  <div className="ml-auto">
+                    <button
+                      onClick={() => {
+                        if (!question || !interviewDifficulty) return;
+                        const saved = saveBookmark({
+                          id: question.id,
+                          question: question.question,
+                          role: '', // will be set from interview detail
+                          difficulty: interviewDifficulty,
+                          score: evaluation.score,
+                          savedAt: new Date().toISOString(),
+                        });
+                        if (saved) showToast('Question bookmarked!', 'success');
+                        else showToast('Already bookmarked.', 'error');
+                      }}
+                      className={`p-2 rounded-lg transition-colors ${
+                        isBookmarked(question?.question || '')
+                          ? 'text-yellow-500'
+                          : 'text-gray-400 hover:text-yellow-500'
+                      }`}
+                      title="Bookmark question"
+                    >
+                      <svg className="w-5 h-5" fill={isBookmarked(question?.question || '') ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 {isMCQ && question.correctAnswer && (
@@ -486,18 +570,112 @@ export default function InterviewSessionPage() {
                 <FeedbackCard title="Weaknesses" items={evaluation.aiFeedback.weaknesses} variant="warning" />
                 <FeedbackCard title="Improvements" items={evaluation.aiFeedback.improvements} variant="info" />
 
+                {/* Model Answer */}
+                {evaluation.aiFeedback.modelAnswer && (
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4">
+                    <h3 className="font-semibold text-indigo-800 dark:text-indigo-300 mb-2">💡 Model Answer</h3>
+                    <p className="text-sm text-indigo-700 dark:text-indigo-400">{evaluation.aiFeedback.modelAnswer}</p>
+                  </div>
+                )}
+
+                {/* STAR Analysis */}
+                {evaluation.aiFeedback.starAnalysis && (
+                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                    <h3 className="font-semibold text-purple-800 dark:text-purple-300 mb-3">⭐ STAR Method Analysis</h3>
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {(['situation', 'task', 'action', 'result'] as const).map((key) => (
+                        <div key={key} className={`text-center p-2 rounded-lg ${
+                          evaluation.aiFeedback.starAnalysis![key]
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                        }`}>
+                          <span className="text-lg">{evaluation.aiFeedback.starAnalysis![key] ? '✅' : '❌'}</span>
+                          <p className="text-xs font-medium capitalize mt-1">{key}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm text-purple-700 dark:text-purple-400">{evaluation.aiFeedback.starAnalysis.feedback}</p>
+                  </div>
+                )}
+
+                {/* Confidence & Filler Words Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {typeof evaluation.aiFeedback.confidenceScore === 'number' && (
+                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">🎯 Confidence</h3>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                          <div
+                            className={`h-3 rounded-full transition-all ${
+                              evaluation.aiFeedback.confidenceScore >= 7 ? 'bg-green-500' :
+                              evaluation.aiFeedback.confidenceScore >= 4 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${evaluation.aiFeedback.confidenceScore * 10}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{evaluation.aiFeedback.confidenceScore}/10</span>
+                      </div>
+                    </div>
+                  )}
+                  {evaluation.aiFeedback.fillerWords && evaluation.aiFeedback.fillerWords.length > 0 && (
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2">🗣️ Filler Words ({evaluation.aiFeedback.fillerWords.length})</h3>
+                      <div className="flex flex-wrap gap-1">
+                        {evaluation.aiFeedback.fillerWords.map((w, i) => (
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400">"{w}"</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Answer Structure */}
+                {evaluation.aiFeedback.answerStructure && (
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">📊 Answer Structure</h3>
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Context', value: evaluation.aiFeedback.answerStructure.context, color: 'bg-blue-500' },
+                        { label: 'Solution', value: evaluation.aiFeedback.answerStructure.solution, color: 'bg-green-500' },
+                        { label: 'Examples', value: evaluation.aiFeedback.answerStructure.examples, color: 'bg-purple-500' },
+                      ].map((item) => (
+                        <div key={item.label} className="flex items-center gap-3">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 w-16">{item.label}</span>
+                          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                            <div className={`h-2.5 rounded-full ${item.color}`} style={{ width: `${item.value}%` }} />
+                          </div>
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-8 text-right">{item.value}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <motion.button
-                    onClick={fetchQuestion}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    className="w-full bg-indigo-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
-                  >
-                    Next Question
-                  </motion.button>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
-                    Press N for next question
-                  </p>
+                  {isFullMock && answeredQuestions.length >= FULL_MOCK_QUESTIONS ? (
+                    <motion.button
+                      onClick={() => { stopTimer(); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); setShowSummary(true); }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      className="w-full bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors"
+                    >
+                      🎉 View Results ({answeredQuestions.length}/{FULL_MOCK_QUESTIONS} complete)
+                    </motion.button>
+                  ) : (
+                    <>
+                      <motion.button
+                        onClick={fetchQuestion}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        className="w-full bg-indigo-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
+                      >
+                        Next Question {isFullMock ? `(${answeredQuestions.length}/${FULL_MOCK_QUESTIONS})` : ''}
+                      </motion.button>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
+                        Press N for next question
+                      </p>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}

@@ -7,8 +7,10 @@ import { useTheme } from '../context/ThemeContext';
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/interview/start', label: 'Interview' },
+  { to: '/schedule', label: '📅 Schedule' },
   { to: '/history', label: 'History' },
   { to: '/resume', label: 'Resume' },
+  { to: '/bookmarks', label: '📌 Bookmarks' },
   { to: '/leaderboard', label: '🏆 Leaderboard' },
 ];
 
@@ -17,6 +19,11 @@ export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const allLinks = [
+    ...navLinks,
+    ...(user?.isAdmin ? [{ to: '/admin', label: '🛡️ Admin' }] : []),
+  ];
 
   return (
     <nav className="sticky top-0 z-50 bg-indigo-600 dark:bg-gray-900/90 dark:backdrop-blur-xl border-b border-indigo-700 dark:border-gray-700/50 text-white shadow-lg">
@@ -28,12 +35,13 @@ export default function Navbar() {
 
           {/* Desktop links */}
           <div className="hidden sm:flex items-center gap-1">
-            {navLinks.map((link) => {
+            {allLinks.map((link) => {
               const isActive = location.pathname === link.to;
               return (
                 <Link
                   key={link.to}
                   to={link.to}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? 'text-white bg-white/20'
@@ -80,6 +88,9 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 {user.name}
+                {user.isAdmin && (
+                  <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-yellow-400/20 text-yellow-300 font-bold uppercase">Admin</span>
+                )}
               </Link>
             )}
             <button
@@ -118,7 +129,7 @@ export default function Navbar() {
             className="sm:hidden overflow-hidden border-t border-white/10"
           >
             <div className="px-4 py-3 space-y-1">
-              {navLinks.map((link) => {
+              {allLinks.map((link) => {
                 const isActive = location.pathname === link.to;
                 return (
                   <Link

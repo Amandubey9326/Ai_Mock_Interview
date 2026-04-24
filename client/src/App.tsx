@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './components/Toast';
+import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -15,6 +16,9 @@ import HistoryPage from './pages/HistoryPage';
 import ResumeAnalyzerPage from './pages/ResumeAnalyzerPage';
 import ProfilePage from './pages/ProfilePage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import BookmarksPage from './pages/BookmarksPage';
+import AdminPage from './pages/AdminPage';
+import SchedulePage from './pages/SchedulePage';
 import NotFoundPage from './pages/NotFoundPage';
 import AboutPage from './pages/AboutPage';
 import AIChatbot from './components/AIChatbot';
@@ -35,6 +39,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <ToastProvider>
+            <ErrorBoundary>
             <Routes>
               <Route path="/" element={<HomeRoute />} />
               <Route path="/login" element={<LoginPage />} />
@@ -49,9 +54,13 @@ function App() {
               <Route path="/resume" element={<ProtectedRoute><ResumeAnalyzerPage /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
               <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
+              <Route path="/bookmarks" element={<ProtectedRoute><BookmarksPage /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+              <Route path="/schedule" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
             <AuthenticatedChatbot />
+            </ErrorBoundary>
           </ToastProvider>
         </AuthProvider>
       </ThemeProvider>

@@ -14,8 +14,8 @@ export async function createInterview(input: CreateInterviewInput): Promise<Inte
   return data;
 }
 
-export async function generateQuestion(interviewId: string): Promise<QuestionResponse> {
-  const { data } = await apiClient.post<QuestionResponse>(`/interviews/${interviewId}/questions`);
+export async function generateQuestion(interviewId: string, company?: string): Promise<QuestionResponse> {
+  const { data } = await apiClient.post<QuestionResponse>(`/interviews/${interviewId}/questions`, { company });
   return data;
 }
 

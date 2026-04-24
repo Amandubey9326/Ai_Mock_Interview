@@ -23,5 +23,6 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET!,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN!,
   geminiApiKey: process.env.GEMINI_API_KEY!,
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   port: parseInt(process.env.PORT || '5001', 10),
 };

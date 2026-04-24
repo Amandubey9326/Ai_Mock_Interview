@@ -13,7 +13,10 @@ export function errorHandler(
   const status = typeof err.status === 'number' ? err.status : 500;
   const message = status === 500 ? 'Internal server error' : err.message || 'Internal server error';
 
-  console.error(err);
+  // Only log stack traces for unexpected errors, not user-facing ones
+  if (status === 500) {
+    console.error(`[ERROR] ${err.message}`, err.stack);
+  }
 
   res.status(status).json({ status, message });
 }

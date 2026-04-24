@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { useToast } from '../components/Toast';
 import { updateProfile, changePassword } from '../api/profile';
 import apiClient from '../api/client';
 
 export default function ProfilePage() {
+  usePageTitle('Profile');
   const { user, updateUser, logout } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();

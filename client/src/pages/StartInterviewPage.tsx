@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useToast } from '../components/Toast';
+import { usePageTitle } from '../hooks/usePageTitle';
 import { createInterview } from '../api/interviews';
 import type { Role, Difficulty } from '../types';
 
@@ -37,12 +38,47 @@ const roleGradients: Record<string, string> = {
   QAAutomation: 'from-cyan-500/10 to-sky-500/10 dark:from-cyan-500/20 dark:to-sky-500/20',
 };
 
+interface InterviewTemplate {
+  id: string;
+  name: string;
+  role: Role;
+  difficulty: Difficulty;
+}
+
+const TEMPLATES_KEY = 'hiremind_templates';
+
+function loadTemplates(): InterviewTemplate[] {
+  try {
+    const raw = localStorage.getItem(TEMPLATES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTemplates(templates: InterviewTemplate[]) {
+  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+}
+
+const roleLabels: Record<string, string> = Object.fromEntries(roles.map((r) => [r.value, r.label]));
+const roleIcons: Record<string, string> = Object.fromEntries(roles.map((r) => [r.value, r.icon]));
+
 export default function StartInterviewPage() {
+  usePageTitle('Start Interview');
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
+  const [interviewMode, setInterviewMode] = useState<'quick' | 'full'>('quick');
+  const [targetCompany, setTargetCompany] = useState('');
   const [loading, setLoading] = useState(false);
+  const [templates, setTemplates] = useState<InterviewTemplate[]>([]);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+
+  useEffect(() => {
+    setTemplates(loadTemplates());
+  }, []);
 
   const handleSubmit = async () => {
     if (!selectedRole || !selectedDifficulty) return;
@@ -50,12 +86,41 @@ export default function StartInterviewPage() {
     try {
       const session = await createInterview({ role: selectedRole, difficulty: selectedDifficulty });
       showToast('Interview session started!', 'success');
-      navigate(`/interview/${session.id}`);
+      navigate(`/interview/${session.id}${interviewMode === 'full' ? '?mode=full' : ''}${targetCompany ? `${interviewMode === 'full' ? '&' : '?'}company=${encodeURIComponent(targetCompany)}` : ''}`);
     } catch {
       showToast('Failed to create interview session. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveTemplate = () => {
+    if (!selectedRole || !selectedDifficulty || !templateName.trim()) return;
+    const newTemplate: InterviewTemplate = {
+      id: Date.now().toString(),
+      name: templateName.trim(),
+      role: selectedRole,
+      difficulty: selectedDifficulty,
+    };
+    const updated = [...templates, newTemplate];
+    setTemplates(updated);
+    saveTemplates(updated);
+    setTemplateName('');
+    setShowSaveTemplate(false);
+    showToast('Template saved!', 'success');
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    const updated = templates.filter((t) => t.id !== id);
+    setTemplates(updated);
+    saveTemplates(updated);
+    showToast('Template deleted.', 'success');
+  };
+
+  const handleUseTemplate = (template: InterviewTemplate) => {
+    setSelectedRole(template.role);
+    setSelectedDifficulty(template.difficulty);
+    showToast(`Loaded "${template.name}" preset.`, 'success');
   };
 
   return (
@@ -87,6 +152,43 @@ export default function StartInterviewPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Start Interview</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2 mb-8">Select a role and difficulty to begin your mock interview.</p>
         </motion.div>
+
+        {/* Saved Templates */}
+        {templates.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mb-8"
+          >
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">⚡ Quick Start</h2>
+            <div className="flex flex-wrap gap-2">
+              {templates.map((t) => (
+                <div key={t.id} className="flex items-center gap-1">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => handleUseTemplate(t)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-900/20 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                  >
+                    <span>{roleIcons[t.role] || '📋'}</span>
+                    <span>{t.name}</span>
+                    <span className="text-xs text-indigo-400">({t.difficulty})</span>
+                  </motion.button>
+                  <button
+                    onClick={() => handleDeleteTemplate(t.id)}
+                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                    title="Delete template"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
 
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Choose a Role</h2>
@@ -155,6 +257,63 @@ export default function StartInterviewPage() {
           </div>
         </section>
 
+        {/* Target Company (optional) */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">🏢 Target Company <span className="text-sm font-normal text-gray-400">(optional)</span></h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Questions will be tailored to this company's interview style.</p>
+          <input
+            type="text"
+            value={targetCompany}
+            onChange={(e) => setTargetCompany(e.target.value)}
+            placeholder="e.g. Google, Amazon, Meta..."
+            maxLength={50}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400 dark:placeholder-gray-500"
+          />
+        </section>
+
+        {/* Interview Mode */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Interview Mode</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setInterviewMode('quick')}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                interviewMode === 'quick'
+                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                  : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl">⚡</span>
+                <span className={`font-semibold ${interviewMode === 'quick' ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                  Quick Practice
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Unlimited questions, 5 min per question. End anytime.</p>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setInterviewMode('full')}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                interviewMode === 'full'
+                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30'
+                  : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xl">🎯</span>
+                <span className={`font-semibold ${interviewMode === 'full' ? 'text-purple-700 dark:text-purple-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                  Full Mock Interview
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">10 questions, 30 min total. Simulates a real interview.</p>
+            </motion.button>
+          </div>
+        </section>
+
         <motion.button
           onClick={handleSubmit}
           disabled={!selectedRole || !selectedDifficulty || loading}
@@ -164,6 +323,56 @@ export default function StartInterviewPage() {
         >
           {loading ? <LoadingSpinner size="sm" /> : 'Start Interview'}
         </motion.button>
+
+        {/* Save as Template */}
+        {selectedRole && selectedDifficulty && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-3 text-center"
+          >
+            {!showSaveTemplate ? (
+              <button
+                onClick={() => setShowSaveTemplate(true)}
+                className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 transition-colors"
+              >
+                💾 Save as template for quick start
+              </button>
+            ) : (
+              <AnimatePresence>
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="flex items-center gap-2 justify-center"
+                >
+                  <input
+                    type="text"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="Template name..."
+                    maxLength={30}
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
+                  />
+                  <button
+                    onClick={handleSaveTemplate}
+                    disabled={!templateName.trim()}
+                    className="bg-indigo-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => { setShowSaveTemplate(false); setTemplateName(''); }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-sm"
+                  >
+                    Cancel
+                  </button>
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </motion.div>
+        )}
       </div>
     </div>
   );

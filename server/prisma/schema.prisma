@@ -31,8 +31,14 @@ model User {
   email            String      @unique
   password         String
   plan             String      @default("free")
+  isAdmin          Boolean     @default(false)
+  xp               Int         @default(0)
+  level            Int         @default(1)
   resetToken       String?
   resetTokenExpiry DateTime?
+  currentStreak    Int         @default(0)
+  longestStreak    Int         @default(0)
+  lastActiveDate   String?
   createdAt        DateTime    @default(now())
   interviews       Interview[]
 }

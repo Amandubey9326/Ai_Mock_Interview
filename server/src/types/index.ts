@@ -10,6 +10,21 @@ export interface AIEvaluationResult {
   strengths: string[];
   weaknesses: string[];
   improvements: string[];
+  modelAnswer?: string;
+  starAnalysis?: {
+    situation: boolean;
+    task: boolean;
+    action: boolean;
+    result: boolean;
+    feedback: string;
+  };
+  confidenceScore?: number;
+  fillerWords?: string[];
+  answerStructure?: {
+    context: number;
+    solution: number;
+    examples: number;
+  };
 }
 
 export interface AIResumeResult {
@@ -28,6 +43,7 @@ export interface AuthResponse {
     id: string;
     name: string;
     email: string;
+    isAdmin?: boolean;
     createdAt: Date;
   };
 }

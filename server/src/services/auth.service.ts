@@ -40,6 +40,7 @@ export async function register(input: RegisterInput): Promise<AuthResponse> {
       id: user.id,
       name: user.name,
       email: user.email,
+      isAdmin: user.isAdmin || false,
       createdAt: user.createdAt,
     },
   };
@@ -103,6 +104,7 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
       id: user.id,
       name: user.name,
       email: user.email,
+      isAdmin: user.isAdmin || false,
       createdAt: user.createdAt,
     },
   };

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import jsPDF from 'jspdf';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { usePageTitle } from '../hooks/usePageTitle';
 import ScoreIndicator from '../components/ScoreIndicator';
 import FeedbackCard from '../components/FeedbackCard';
 import { useToast } from '../components/Toast';
@@ -18,6 +19,7 @@ const difficultyColors: Record<string, string> = {
 };
 
 export default function HistoryPage() {
+  usePageTitle('History');
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);

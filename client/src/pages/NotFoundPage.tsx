@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 export default function NotFoundPage() {
+  const { isAuthenticated } = useAuth();
+  const homePath = isAuthenticated ? '/dashboard' : '/';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <motion.div
@@ -23,10 +27,10 @@ export default function NotFoundPage() {
           Looks like this page went on a coffee break. Let's get you back on track.
         </p>
         <Link
-          to="/"
+          to={homePath}
           className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
         >
-          Go Home
+          {isAuthenticated ? 'Go to Dashboard' : 'Go Home'}
         </Link>
       </motion.div>
     </div>

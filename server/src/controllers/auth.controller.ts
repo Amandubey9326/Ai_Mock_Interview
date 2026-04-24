@@ -119,3 +119,21 @@ export async function deleteAccount(req: Request, res: Response, next: NextFunct
     next(err);
   }
 }
+
+
+export async function googleLogin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken || typeof idToken !== 'string') {
+      res.status(400).json({ status: 400, message: 'Google ID token is required' });
+      return;
+    }
+
+    const { googleAuth } = await import('../services/google-auth.service');
+    const result = await googleAuth(idToken);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}

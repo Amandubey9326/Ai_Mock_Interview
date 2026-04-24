@@ -6,6 +6,7 @@ export interface User {
   name: string;
   email: string;
   createdAt: string;
+  isAdmin?: boolean;
 }
 
 export interface AuthResponse {
@@ -43,6 +44,21 @@ export interface AIFeedback {
   strengths: string[];
   weaknesses: string[];
   improvements: string[];
+  modelAnswer?: string;
+  starAnalysis?: {
+    situation: boolean;
+    task: boolean;
+    action: boolean;
+    result: boolean;
+    feedback: string;
+  };
+  confidenceScore?: number;
+  fillerWords?: string[];
+  answerStructure?: {
+    context: number;
+    solution: number;
+    examples: number;
+  };
 }
 
 export interface QuestionResponse {
@@ -74,6 +90,17 @@ export interface PaginatedInterviews {
 export interface DashboardData {
   totalSessions: number;
   averageScore: number;
+  currentStreak: number;
+  longestStreak: number;
+  xp: {
+    level: number;
+    name: string;
+    xp: number;
+    xpForCurrentLevel: number;
+    xpForNextLevel: number | null;
+    nextLevelName: string | null;
+    progress: number;
+  };
   recentSessions: {
     id: string;
     role: Role;

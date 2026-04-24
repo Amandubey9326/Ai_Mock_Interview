@@ -53,7 +53,8 @@ export async function getInterview(req: Request, res: Response, next: NextFuncti
 
 export async function generateQuestion(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await interviewService.generateQuestion(req.params.id as string);
+    const company = typeof req.body?.company === 'string' ? req.body.company.trim() : undefined;
+    const result = await interviewService.generateQuestion(req.params.id as string, company);
     res.status(200).json(result);
   } catch (err) {
     next(err);

@@ -1,16 +1,21 @@
 import prisma from '../lib/prisma';
 import type { Role, Difficulty } from '@prisma/client';
 import * as aiService from './ai.service';
+import { updateStreak } from './streak.service';
+import { awardXP, calculateXP } from './xp.service';
 
 export async function createSession(userId: string, role: Role, difficulty: Difficulty) {
   const interview = await prisma.interview.create({
     data: { userId, role, difficulty },
   });
 
+  // Update streak on new interview
+  await updateStreak(userId);
+
   return { id: interview.id };
 }
 
-export async function generateQuestion(interviewId: string) {
+export async function generateQuestion(interviewId: string, company?: string) {
   const interview = await prisma.interview.findUnique({
     where: { id: interviewId },
     include: { questions: { select: { question: true } } },
@@ -23,7 +28,7 @@ export async function generateQuestion(interviewId: string) {
   }
 
   const previousQuestions = interview.questions.map((q) => q.question);
-  const aiResult = await aiService.generateQuestion(interview.role, interview.difficulty, previousQuestions);
+  const aiResult = await aiService.generateQuestion(interview.role, interview.difficulty, previousQuestions, company);
 
   const question = await prisma.interviewQuestion.create({
     data: {
@@ -54,7 +59,7 @@ export async function submitAnswer(questionId: string, answer: string) {
     throw error;
   }
 
-  const evaluation = await aiService.evaluateAnswer(question.question, answer);
+  const evaluation = await aiService.evaluateAnswer(question.question, answer, question.interview.role);
 
   const updated = await prisma.interviewQuestion.update({
     where: { id: questionId },
@@ -64,10 +69,19 @@ export async function submitAnswer(questionId: string, answer: string) {
         strengths: evaluation.strengths,
         weaknesses: evaluation.weaknesses,
         improvements: evaluation.improvements,
+        modelAnswer: evaluation.modelAnswer,
+        starAnalysis: evaluation.starAnalysis,
+        confidenceScore: evaluation.confidenceScore,
+        fillerWords: evaluation.fillerWords,
+        answerStructure: evaluation.answerStructure,
       },
       score: evaluation.score,
     },
   });
+
+  // Award XP
+  const xpEarned = calculateXP(evaluation.score, question.interview.difficulty);
+  await awardXP(question.interview.userId, xpEarned);
 
   return {
     id: updated.id,
@@ -75,6 +89,7 @@ export async function submitAnswer(questionId: string, answer: string) {
     userAnswer: updated.userAnswer,
     score: updated.score,
     aiFeedback: updated.aiFeedback,
+    xpEarned,
   };
 }
 

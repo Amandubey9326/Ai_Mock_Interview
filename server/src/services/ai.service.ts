@@ -51,30 +51,32 @@ function cleanMCQQuestion(question: string): string {
 export async function generateQuestion(
   role: string,
   difficulty: string,
-  previousQuestions: string[] = []
+  previousQuestions: string[] = [],
+  company?: string
 ): Promise<AIQuestionResult> {
   try {
     const isQARole = role === 'QAManual' || role === 'QAAutomation';
     const roleLabel = role === 'QAManual' ? 'QA Manual Testing' : role === 'QAAutomation' ? 'QA Automation Testing' : role;
     
+    const companyContext = company ? `\n\nTailor the question to match ${company}'s interview style and the kind of problems they typically ask.` : '';
+    
     const avoidList = previousQuestions.length > 0
       ? `\n\nDo NOT repeat or rephrase any of these previously asked questions:\n${previousQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\nGenerate a completely different question on a different topic.`
       : '';
 
-    let prompt: string;
-    if (isQARole) {
-      prompt = `Generate a ${difficulty} level ${roleLabel} interview question. Randomly choose MCQ or descriptive.
+    const prompt = `Generate a ${difficulty} level ${roleLabel} interview question. Randomly choose between MCQ (objective) or descriptive. Prefer MCQ more often.
 
 If MCQ, return EXACTLY this JSON format (4 options, no A/B/C/D prefix in options):
-{"type":"mcq","question":"What is the capital of India?","options":["Delhi","Nepal","Mumbai","Kolkata"],"correctAnswer":"A"}
+{"type":"mcq","question":"Your question text here?","options":["Option 1","Option 2","Option 3","Option 4"],"correctAnswer":"A"}
 
 If descriptive, return:
-{"type":"descriptive","question":"Explain the difference between..."}
+{"type":"descriptive","question":"Your question text here"}
 
-IMPORTANT: For MCQ, the "question" field must contain ONLY the question text. The options must be in the "options" array, NOT inside the question string. Return ONLY raw JSON.${avoidList}`;
-    } else {
-      prompt = `Generate a ${difficulty} level ${roleLabel} interview question. Return ONLY a JSON object like {"type":"descriptive","question":"your question here"}. No markdown, no code blocks, just raw JSON.${avoidList}`;
-    }
+IMPORTANT RULES:
+- For MCQ, the "question" field must contain ONLY the question text, NOT the options.
+- The options must be in the "options" array as plain strings without A/B/C/D prefixes.
+- "correctAnswer" must be one of: "A", "B", "C", "D" corresponding to the option index.
+- Return ONLY raw JSON. No markdown, no code blocks, no explanation.${avoidList}${companyContext}`;
 
     const result = await model.generateContent(prompt);
     const content = result.response.text();
@@ -109,14 +111,24 @@ IMPORTANT: For MCQ, the "question" field must contain ONLY the question text. Th
 
 export async function evaluateAnswer(
   question: string,
-  answer: string
+  answer: string,
+  role?: string
 ): Promise<AIEvaluationResult> {
   try {
+    const isBehavioral = role === 'HR' || /tell me about a time|describe a situation|give an example/i.test(question);
+
+    const starInstruction = isBehavioral
+      ? `\n- starAnalysis: object with { situation: boolean, task: boolean, action: boolean, result: boolean, feedback: string } indicating if the answer covers each STAR component`
+      : '';
+
     const prompt = `Evaluate the following interview answer. Return ONLY a JSON object (no markdown, no code blocks) with these fields:
 - score: integer from 1 to 10
 - strengths: array of strings
 - weaknesses: array of strings  
 - improvements: array of strings
+- modelAnswer: string (a concise ideal answer to this question, 2-4 sentences)
+- confidenceScore: integer from 1 to 10 (based on language certainty — penalize hedging words like "maybe", "I think", "probably", "I guess")
+- answerStructure: object with { context: integer 0-100, solution: integer 0-100, examples: integer 0-100 } representing what percentage of the answer is context/background, actual solution/answer, and examples/evidence${starInstruction}
 
 Question: ${question}
 
@@ -132,7 +144,7 @@ Answer: ${answer}`;
     }
 
     const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = JSON.parse(cleaned) as AIEvaluationResult;
+    const parsed = JSON.parse(cleaned);
 
     if (typeof parsed.score !== 'number' || parsed.score < 1 || parsed.score > 10) {
       const error = new Error('AI returned invalid score');
@@ -140,11 +152,20 @@ Answer: ${answer}`;
       throw error;
     }
 
+    // Detect filler words in the answer
+    const fillerPatterns = /\b(um|uh|like|you know|basically|actually|literally|sort of|kind of|i mean|i guess|i think maybe)\b/gi;
+    const fillerMatches = answer.match(fillerPatterns) || [];
+
     return {
       score: parsed.score,
       strengths: parsed.strengths || [],
       weaknesses: parsed.weaknesses || [],
       improvements: parsed.improvements || [],
+      modelAnswer: parsed.modelAnswer || undefined,
+      starAnalysis: parsed.starAnalysis || undefined,
+      confidenceScore: typeof parsed.confidenceScore === 'number' ? parsed.confidenceScore : undefined,
+      fillerWords: fillerMatches.length > 0 ? fillerMatches : undefined,
+      answerStructure: parsed.answerStructure || undefined,
     };
   } catch (err: any) {
     handleAIError(err);

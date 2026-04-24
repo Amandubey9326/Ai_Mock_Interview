@@ -4,7 +4,7 @@
   "description": "HireMind AI Backend - Node.js + Express + TypeScript",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "bash dev.sh",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest --run",
